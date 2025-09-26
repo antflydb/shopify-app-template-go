@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/antflydb/shopify-app-template-go/pkg/logging"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
@@ -27,14 +29,9 @@ func Run(cfg *config.Config) {
 	ctx := context.Background()
 
 	// Init db
-	sql, err := database.NewPostgreSQL(ctx, &database.PostgreSQLConfig{
-		User:     cfg.Postgres.User,
-		Password: cfg.Postgres.Password,
-		Host:     cfg.Postgres.Host,
-		Database: cfg.Postgres.Database,
-	})
+	sql, err := database.NewDatabase(ctx, cfg)
 	if err != nil {
-		logger.Fatal("failed to connect to PostgreSQL", "err", err)
+		logger.Fatal("failed to connect to database", "err", err)
 	}
 
 	// Run migrations
@@ -107,15 +104,26 @@ func Run(cfg *config.Config) {
 }
 
 func runMigrations(cfg *config.Config, logger logging.Logger) error {
-	databaseURL := fmt.Sprintf(
-		"postgres://%s:%s@%s/%s?sslmode=disable",
-		cfg.Postgres.User,
-		cfg.Postgres.Password,
-		cfg.Postgres.Host,
-		cfg.Postgres.Database,
-	)
+	var databaseURL, migrationsPath string
 
-	m, err := migrate.New("file://migrations", databaseURL)
+	switch strings.ToLower(cfg.Database.Type) {
+	case "postgres", "postgresql":
+		databaseURL = fmt.Sprintf(
+			"postgres://%s:%s@%s/%s?sslmode=disable",
+			cfg.Database.Postgres.User,
+			cfg.Database.Postgres.Password,
+			cfg.Database.Postgres.Host,
+			cfg.Database.Postgres.Database,
+		)
+		migrationsPath = "file://migrations"
+	case "sqlite", "sqlite3":
+		databaseURL = fmt.Sprintf("sqlite3://%s", cfg.Database.SQLite.Path)
+		migrationsPath = "file://migrations/sqlite"
+	default:
+		return fmt.Errorf("unsupported database type for migrations: %s", cfg.Database.Type)
+	}
+
+	m, err := migrate.New(migrationsPath, databaseURL)
 	if err != nil {
 		return fmt.Errorf("failed to create migrate instance: %w", err)
 	}

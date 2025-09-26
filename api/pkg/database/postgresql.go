@@ -2,8 +2,11 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -51,12 +54,93 @@ func NewPostgreSQL(ctx context.Context, cfg *PostgreSQLConfig) (*PostgreSQL, err
 	return &PostgreSQL{pool: pool}, nil
 }
 
-func (p *PostgreSQL) Pool() *pgxpool.Pool {
-	return p.pool
+func (p *PostgreSQL) Exec(ctx context.Context, query string, args ...interface{}) (Result, error) {
+	commandTag, err := p.pool.Exec(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	return &postgresResult{commandTag: commandTag}, nil
+}
+
+func (p *PostgreSQL) Query(ctx context.Context, query string, args ...interface{}) (Rows, error) {
+	rows, err := p.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	return &postgresRows{rows: rows}, nil
+}
+
+func (p *PostgreSQL) QueryRow(ctx context.Context, query string, args ...interface{}) Row {
+	row := p.pool.QueryRow(ctx, query, args...)
+	return &postgresRow{row: row}
 }
 
 func (p *PostgreSQL) Close() {
 	if p.pool != nil {
 		p.pool.Close()
 	}
+}
+
+// Adapter types to bridge pgx and database/sql interfaces
+
+type postgresResult struct {
+	commandTag pgconn.CommandTag
+}
+
+func (r *postgresResult) LastInsertId() (int64, error) {
+	return 0, fmt.Errorf("LastInsertId is not supported by this driver")
+}
+
+func (r *postgresResult) RowsAffected() (int64, error) {
+	return r.commandTag.RowsAffected(), nil
+}
+
+type postgresRows struct {
+	rows pgx.Rows
+}
+
+func (r *postgresRows) Close() error {
+	r.rows.Close()
+	return nil
+}
+
+func (r *postgresRows) ColumnTypes() ([]*sql.ColumnType, error) {
+	return nil, fmt.Errorf("ColumnTypes is not implemented")
+}
+
+func (r *postgresRows) Columns() ([]string, error) {
+	fieldDescs := r.rows.FieldDescriptions()
+	columns := make([]string, len(fieldDescs))
+	for i, fd := range fieldDescs {
+		columns[i] = fd.Name
+	}
+	return columns, nil
+}
+
+func (r *postgresRows) Err() error {
+	return r.rows.Err()
+}
+
+func (r *postgresRows) Next() bool {
+	return r.rows.Next()
+}
+
+func (r *postgresRows) NextResultSet() bool {
+	return false
+}
+
+func (r *postgresRows) Scan(dest ...interface{}) error {
+	return r.rows.Scan(dest...)
+}
+
+type postgresRow struct {
+	row pgx.Row
+}
+
+func (r *postgresRow) Err() error {
+	return nil
+}
+
+func (r *postgresRow) Scan(dest ...interface{}) error {
+	return r.row.Scan(dest...)
 }

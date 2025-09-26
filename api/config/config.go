@@ -13,7 +13,7 @@ type (
 		Shopify  Shopify
 		HTTP     HTTP
 		Log      Log
-		Postgres Postgres
+		Database DatabaseConfig
 	}
 
 	App struct {
@@ -33,11 +33,21 @@ type (
 		SendDetailsOnInternalError bool   `env:"HTTP_SEND_DETAILS_ON_INTERNAL_ERROR" env-default:"true"`
 	}
 
+	DatabaseConfig struct {
+		Type     string `env:"DATABASE_TYPE" env-default:"postgres"`
+		Postgres Postgres
+		SQLite   SQLite
+	}
+
 	Postgres struct {
 		User     string `env:"POSTGRES_USER" env-default:"postgres"`
 		Password string `env:"POSTGRES_PASSWORD" env-default:"postgres"`
 		Host     string `env:"POSTGRES_HOST" env-default:"localhost"`
 		Database string `env:"POSTGRES_DATABASE" env-default:"api"`
+	}
+
+	SQLite struct {
+		Path string `env:"SQLITE_PATH" env-default:"./app.db"`
 	}
 
 	Log struct {

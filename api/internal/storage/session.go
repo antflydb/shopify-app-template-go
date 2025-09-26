@@ -2,14 +2,15 @@ package storage
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/antflydb/shopify-app-template-go/internal/entity"
 	"github.com/antflydb/shopify-app-template-go/internal/service"
 	"github.com/antflydb/shopify-app-template-go/pkg/database"
 	"github.com/huandu/go-sqlbuilder"
-	"github.com/jackc/pgx/v5"
 )
 
 type sessionStorage struct {
@@ -31,11 +32,11 @@ func (s *sessionStorage) Get(ctx context.Context, sessionID string) (*entity.Ses
 		Build()
 
 	var session entity.Session
-	err := s.Pool().QueryRow(ctx, query, args...).Scan(
+	err := s.QueryRow(ctx, query, args...).Scan(
 		&session.SessionID,
 		&session.StoreID,
 	)
-	if errors.Is(err, pgx.ErrNoRows) {
+	if errors.Is(err, sql.ErrNoRows) || (err != nil && strings.Contains(err.Error(), "no rows in result set")) {
 		return nil, nil
 	}
 	if err != nil {
@@ -53,7 +54,7 @@ func (s *sessionStorage) Create(ctx context.Context, session *entity.Session) (*
 		Values(session.SessionID, session.StoreID).
 		Build()
 
-	_, err := s.Pool().Exec(ctx, query, args...)
+	_, err := s.Exec(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create session: %w", err)
 	}
@@ -68,7 +69,7 @@ func (s *sessionStorage) Delete(ctx context.Context, sessionID string) error {
 		Where(sb.Equal("session_id", sessionID)).
 		Build()
 
-	_, err := s.Pool().Exec(ctx, query, args...)
+	_, err := s.Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("failed to delete session: %w", err)
 	}

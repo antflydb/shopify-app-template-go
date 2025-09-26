@@ -2,15 +2,16 @@ package storage
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/antflydb/shopify-app-template-go/internal/entity"
 	"github.com/antflydb/shopify-app-template-go/internal/service"
 	"github.com/antflydb/shopify-app-template-go/pkg/database"
 	"github.com/huandu/go-sqlbuilder"
-	"github.com/jackc/pgx/v5"
 )
 
 type storeStorage struct {
@@ -33,7 +34,7 @@ func (s *storeStorage) Get(ctx context.Context, storeName string) (*entity.Store
 		Build()
 
 	var store entity.Store
-	err := s.Pool().QueryRow(ctx, query, args...).Scan(
+	err := s.QueryRow(ctx, query, args...).Scan(
 		&store.ID,
 		&store.Name,
 		&store.Nonce,
@@ -43,7 +44,7 @@ func (s *storeStorage) Get(ctx context.Context, storeName string) (*entity.Store
 		&store.UpdatedAt,
 		&store.DeletedAt,
 	)
-	if errors.Is(err, pgx.ErrNoRows) {
+	if errors.Is(err, sql.ErrNoRows) || (err != nil && strings.Contains(err.Error(), "no rows in result set")) {
 		return nil, nil
 	}
 	if err != nil {
@@ -70,7 +71,7 @@ func (s *storeStorage) Update(ctx context.Context, store *entity.Store) (*entity
 		Where(sb.IsNull("deleted_at")).
 		Build()
 
-	_, err := s.Pool().Exec(ctx, query, args...)
+	_, err := s.Exec(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update store: %w", err)
 	}
@@ -95,7 +96,7 @@ func (s *storeStorage) Create(ctx context.Context, store *entity.Store) (*entity
 		Values(store.ID, store.Name, store.Nonce, store.AccessToken, store.Installed, store.CreatedAt, store.UpdatedAt).
 		Build()
 
-	_, err := s.Pool().Exec(ctx, query, args...)
+	_, err := s.Exec(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create store: %w", err)
 	}
@@ -114,7 +115,7 @@ func (s *storeStorage) Delete(ctx context.Context, storeName string) error {
 		Where(sb.IsNull("deleted_at")).
 		Build()
 
-	_, err := s.Pool().Exec(ctx, query, args...)
+	_, err := s.Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("failed to delete store: %w", err)
 	}

@@ -5,9 +5,9 @@ go 1.25
 require (
 	github.com/DataDog/gostackparse v0.7.0
 	github.com/go-resty/resty/v2 v2.16.5
-	github.com/golang-migrate/migrate/v4 v4.18.1
+	github.com/golang-migrate/migrate/v4 v4.19.0
 	github.com/google/uuid v1.6.0
-	github.com/huandu/go-sqlbuilder v1.34.0
+	github.com/huandu/go-sqlbuilder v1.37.0
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/jackc/pgx/v5 v5.7.6
 	go.uber.org/zap v1.27.0
@@ -17,10 +17,12 @@ require (
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
-	github.com/huandu/xstrings v1.4.0 // indirect
+	github.com/huandu/go-clone v1.7.3 // indirect
+	github.com/huandu/xstrings v1.5.0 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/lib/pq v1.10.9 // indirect
-	go.uber.org/atomic v1.7.0 // indirect
+	github.com/mattn/go-sqlite3 v1.14.32 // indirect
+	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	golang.org/x/sync v0.17.0 // indirect
 )
 
