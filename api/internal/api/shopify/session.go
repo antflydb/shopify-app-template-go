@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/softcery/shopify-app-template-go/internal/service"
 )
 
@@ -73,7 +73,7 @@ type Claims struct {
 	Dest   string `json:"dest"`
 	Aud    string `json:"aud"`
 	Sub    string `json:"sub"`
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 }
 
 // verifySessionToken verifies the session details of the provided JWT token
@@ -89,13 +89,13 @@ func (s *shopifyAPI) verifySessionToken(tokenString string) (string, error) {
 	}
 
 	// Verify the exp value
-	now := time.Now().UTC().Unix()
-	if claims.ExpiresAt <= now {
+	now := time.Now().UTC()
+	if claims.ExpiresAt != nil && claims.ExpiresAt.Before(now) {
 		return "", errors.New("JWT token has expired")
 	}
 
 	// Verify the nbf value
-	if claims.NotBefore > now {
+	if claims.NotBefore != nil && claims.NotBefore.After(now) {
 		return "", errors.New("JWT token not yet valid")
 	}
 
