@@ -120,7 +120,9 @@ func (r *platformRoutes) redirectHandler(c *RequestContext) (any, *httpErr) {
 		}
 	}
 	// After successful handling of redirect call, redirect user to app's UI at their platform store
-	c.Redirect(http.StatusFound, fmt.Sprintf("https://%s/admin/apps/%s", requestQuery.StoreName, r.cfg.Shopify.ApiKey))
+	redirectURL := fmt.Sprintf("https://%s/admin/apps/%s", requestQuery.StoreName, r.cfg.Shopify.ApiKey)
+	logger.Info("redirecting to app UI", "redirectURL", redirectURL, "apiKey", r.cfg.Shopify.ApiKey)
+	c.Redirect(http.StatusFound, redirectURL)
 
 	logger.Info("successfully handled redirect call")
 	return nil, nil

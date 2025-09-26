@@ -31,14 +31,38 @@ Please ensure that the following software is installed on your computer:
     npm i
     ```
 
-3. Start the database (Postgres is used by default). The following command will start a new Postgres container using the configuration in the **`.local.env`** file:
+3. Choose your database option:
+
+   **Option A: PostgreSQL with Docker (default)**
+
+   Start a new Postgres container using the configuration in the **`.local.env`** file:
 
     ```
     docker-compose --env-file .local.env up --build postgresdb
     ```
 
-4. Run the project:
+   **Option B: SQLite (no Docker required)**
+
+   Simply set the database type to SQLite. No additional setup needed:
 
     ```
+    export DATABASE_TYPE=sqlite
+    ```
+
+   Or create a `.local.env` file and add:
+    ```
+    DATABASE_TYPE=sqlite
+    SQLITE_PATH=./app.db
+    ```
+
+4. Run the project:
+
+    **With PostgreSQL:**
+    ```
     npm run dev
+    ```
+
+    **With SQLite:**
+    ```
+    DATABASE_TYPE=sqlite npm run dev
     ```

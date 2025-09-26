@@ -26,6 +26,7 @@ import (
 
 func Run(cfg *config.Config) {
 	logger := logging.NewZap(cfg.Log.Level)
+	logger.Info("loaded configuration", "apiKey", cfg.Shopify.ApiKey, "apiKeyLength", len(cfg.Shopify.ApiKey), "baseURL", cfg.App.BaseURL)
 	ctx := context.Background()
 
 	// Init db

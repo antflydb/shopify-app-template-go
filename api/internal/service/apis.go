@@ -25,6 +25,8 @@ type PlatformAPI interface {
 	VerifySession(ctx context.Context) (*VerifySessionOutput, error)
 	// WithConfig returns a new instance of PlatformAPI with provided store config.
 	WithConfig(ctx context.Context, store *entity.Store) PlatformAPI
+	// WithSessionToken returns a new instance of PlatformAPI with session token authentication.
+	WithSessionToken(ctx context.Context, store *entity.Store, sessionToken string) PlatformAPI
 	// CreateProducts creates random products in shopify store.
 	CreateProducts(ctx context.Context) error
 	// GetProductsCount returns number of products in store.

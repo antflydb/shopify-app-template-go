@@ -51,7 +51,7 @@ func New(options *Options) {
 	}
 
 	// K8S probe
-	options.Handler.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
+	options.Handler.HandleFunc("GET /ping", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 

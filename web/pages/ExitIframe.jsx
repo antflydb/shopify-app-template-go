@@ -1,5 +1,4 @@
-import { Redirect } from "@shopify/app-bridge/actions";
-import { useAppBridge, Loading } from "@shopify/app-bridge-react";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
@@ -14,14 +13,17 @@ export default function ExitIframe() {
       const url = new URL(decodeURIComponent(redirectUri));
 
       if (url.hostname === location.hostname) {
-        const redirect = Redirect.create(app);
-        redirect.dispatch(
-          Redirect.Action.REMOTE,
-          decodeURIComponent(redirectUri)
-        );
+        app.navigate(decodeURIComponent(redirectUri));
       }
     }
   }, [app, search]);
 
-  return <Loading />;
+  useEffect(() => {
+    if (app) {
+      app.loading(true);
+      return () => app.loading(false);
+    }
+  }, [app]);
+
+  return <div>Loading...</div>;
 }

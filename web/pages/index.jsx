@@ -2,11 +2,11 @@ import {
   Card,
   Page,
   Layout,
-  TextContainer,
+  BlockStack,
   Image,
-  Stack,
+  InlineStack,
   Link,
-  Heading,
+  Text,
 } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 
@@ -21,15 +21,15 @@ export default function HomePage() {
       <Layout>
         <Layout.Section>
           <Card sectioned>
-            <Stack
+            <InlineStack
               wrap={false}
-              spacing="extraTight"
-              distribution="trailing"
-              alignment="center"
+              gap="200"
+              blockAlign="center"
+              align="end"
             >
-              <Stack.Item fill>
-                <TextContainer spacing="loose">
-                  <Heading>Nice work on building a Shopify app 🎉</Heading>
+              <div style={{ flex: "1" }}>
+                <BlockStack gap="5">
+                  <Text variant="headingMd" as="h1">Nice work on building a Shopify app 🎉</Text>
                   <p>
                     Your app is ready to explore! It contains everything you
                     need to get started including the{" "}
@@ -63,18 +63,16 @@ export default function HomePage() {
                     </Link>{" "}
                     📚{" "}
                   </p>
-                </TextContainer>
-              </Stack.Item>
-              <Stack.Item>
-                <div style={{ padding: "0 20px" }}>
-                  <Image
-                    source={trophyImage}
-                    alt="Nice work on building a Shopify app"
-                    width={120}
-                  />
-                </div>
-              </Stack.Item>
-            </Stack>
+                </BlockStack>
+              </div>
+              <div style={{ padding: "0 20px" }}>
+                <Image
+                  source={trophyImage}
+                  alt="Nice work on building a Shopify app"
+                  width={120}
+                />
+              </div>
+            </InlineStack>
           </Card>
         </Layout.Section>
         <Layout.Section>

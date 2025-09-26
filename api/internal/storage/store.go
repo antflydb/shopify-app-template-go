@@ -11,17 +11,22 @@ import (
 	"github.com/antflydb/shopify-app-template-go/internal/entity"
 	"github.com/antflydb/shopify-app-template-go/internal/service"
 	"github.com/antflydb/shopify-app-template-go/pkg/database"
+	"github.com/antflydb/shopify-app-template-go/pkg/logging"
 	"github.com/huandu/go-sqlbuilder"
 )
 
 type storeStorage struct {
 	database.Database
+	logger logging.Logger
 }
 
 var _ service.StoreStorage = (*storeStorage)(nil)
 
 func NewStoreStorage(db database.Database) *storeStorage {
-	return &storeStorage{db}
+	return &storeStorage{
+		Database: db,
+		logger:   logging.NewZap("info").Named("StoreStorage"),
+	}
 }
 
 func (s *storeStorage) Get(ctx context.Context, storeName string) (*entity.Store, error) {
@@ -55,6 +60,9 @@ func (s *storeStorage) Get(ctx context.Context, storeName string) (*entity.Store
 }
 
 func (s *storeStorage) Update(ctx context.Context, store *entity.Store) (*entity.Store, error) {
+	logger := s.logger.Named("Update").WithContext(ctx).With("storeName", store.Name)
+	logger.Info("attempting to update store in database", "installed", store.Installed, "hasAccessToken", store.AccessToken != "")
+
 	now := time.Now()
 	store.UpdatedAt = now
 
@@ -71,20 +79,27 @@ func (s *storeStorage) Update(ctx context.Context, store *entity.Store) (*entity
 		Where(sb.IsNull("deleted_at")).
 		Build()
 
+	logger.Debug("executing update query", "query", query)
 	_, err := s.Exec(ctx, query, args...)
 	if err != nil {
+		logger.Error("failed to execute update query", "err", err)
 		return nil, fmt.Errorf("failed to update store: %w", err)
 	}
 
 	updatedStore, err := s.Get(ctx, store.Name)
 	if err != nil {
+		logger.Error("failed to get updated store after update", "err", err)
 		return nil, fmt.Errorf("failed to get updated store: %w", err)
 	}
 
+	logger.Info("successfully updated store in database", "storeId", updatedStore.ID, "storeName", updatedStore.Name, "installed", updatedStore.Installed)
 	return updatedStore, nil
 }
 
 func (s *storeStorage) Create(ctx context.Context, store *entity.Store) (*entity.Store, error) {
+	logger := s.logger.Named("Create").WithContext(ctx).With("storeName", store.Name)
+	logger.Info("attempting to create store in database", "storeId", store.ID, "installed", store.Installed)
+
 	now := time.Now()
 	store.CreatedAt = now
 	store.UpdatedAt = now
@@ -92,15 +107,18 @@ func (s *storeStorage) Create(ctx context.Context, store *entity.Store) (*entity
 	sb := sqlbuilder.NewInsertBuilder()
 	query, args := sb.
 		InsertInto("stores").
-		Cols("id", "name", "nonce", "access_token", "installed", "created_at", "updated_at").
-		Values(store.ID, store.Name, store.Nonce, store.AccessToken, store.Installed, store.CreatedAt, store.UpdatedAt).
+		Cols("name", "nonce", "access_token", "installed", "created_at", "updated_at").
+		Values(store.Name, store.Nonce, store.AccessToken, store.Installed, store.CreatedAt, store.UpdatedAt).
 		Build()
 
+	logger.Debug("executing create query", "query", query, "args", args)
 	_, err := s.Exec(ctx, query, args...)
 	if err != nil {
+		logger.Error("failed to execute create query", "err", err)
 		return nil, fmt.Errorf("failed to create store: %w", err)
 	}
 
+	logger.Info("successfully created store in database", "storeId", store.ID, "storeName", store.Name)
 	return store, nil
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/antflydb/shopify-app-template-go/config"
 	"github.com/antflydb/shopify-app-template-go/internal/entity"
@@ -61,6 +62,7 @@ func (s *platformService) Handle(ctx context.Context, storeName, installationURL
 
 	// Create new instance of a store in db or update existing one with nonce
 	if store == nil {
+		logger.Info("creating new store", "storeName", storeName, "nonce", res.Nonce)
 		createdStore, err := s.storages.Store.Create(ctx, &entity.Store{
 			Name:      storeName,
 			Nonce:     res.Nonce,
@@ -71,7 +73,9 @@ func (s *platformService) Handle(ctx context.Context, storeName, installationURL
 			return "", fmt.Errorf("failed to create store in storage: %w", err)
 		}
 		logger = logger.With("createdStore", createdStore)
+		logger.Info("successfully created store", "storeId", createdStore.ID, "storeName", createdStore.Name)
 	} else {
+		logger.Info("updating existing store with new nonce", "storeName", storeName, "oldNonce", store.Nonce, "newNonce", res.Nonce)
 		updatedStore, err := s.storages.Store.Update(ctx, &entity.Store{
 			Name:      storeName,
 			Nonce:     res.Nonce,
@@ -82,6 +86,7 @@ func (s *platformService) Handle(ctx context.Context, storeName, installationURL
 			return "", fmt.Errorf("failed to create store in storage: %w", err)
 		}
 		logger = logger.With("updatedStore", updatedStore)
+		logger.Info("successfully updated store with new nonce", "storeId", updatedStore.ID, "storeName", updatedStore.Name)
 	}
 	logger.Info("got redirect url and saved store's nonce into db")
 
@@ -104,7 +109,7 @@ func (s *platformService) HandleRedirect(ctx context.Context, opts ServiceHandle
 		return ErrHandleRedirectStoreNotFound
 	}
 	logger = logger.With("store", store)
-	logger.Debug("got store")
+	logger.Debug("got store for redirect")
 
 	accessToken, err := s.apis.Platform.HandleRedirect(APIHandleRedirectOptions{
 		Nonce:         store.Nonce,
@@ -132,6 +137,7 @@ func (s *platformService) HandleRedirect(ctx context.Context, opts ServiceHandle
 	}
 	logger.Debug("subscribed to webhook")
 
+	logger.Info("marking store as installed", "storeName", opts.StoreName)
 	updatedStore, err := s.storages.Store.Update(ctx, &entity.Store{
 		Name:        opts.StoreName,
 		AccessToken: accessToken,
@@ -142,7 +148,7 @@ func (s *platformService) HandleRedirect(ctx context.Context, opts ServiceHandle
 		return fmt.Errorf("failed to update store in storage: %w", err)
 	}
 	logger = logger.With("updatedStore", updatedStore)
-	logger.Info("updated store")
+	logger.Info("successfully marked store as installed", "storeId", updatedStore.ID, "storeName", updatedStore.Name, "installed", updatedStore.Installed)
 
 	return nil
 }
@@ -192,8 +198,27 @@ func (s *platformService) CreateProducts(ctx context.Context) error {
 		logger.Error("failed to get store from storage", "err", err)
 		return fmt.Errorf("failed to get store from storage: %w", err)
 	}
+	if store == nil {
+		logger.Info("store not found, creating new store", "store_name", output.StoreName)
+		store, err = s.storages.Store.Create(ctx, &entity.Store{
+			Name:      output.StoreName,
+			Installed: true,
+		})
+		if err != nil {
+			logger.Error("failed to create store", "err", err)
+			return fmt.Errorf("failed to create store: %w", err)
+		}
+		logger.Info("successfully created store", "storeId", store.ID, "storeName", store.Name)
+	}
 
-	err = s.apis.Platform.WithConfig(ctx, store).CreateProducts(ctx)
+	// Get session token from context for API calls
+	sessionToken := getSessionTokenFromContext(ctx)
+	if sessionToken == "" {
+		logger.Error("missing session token for API call")
+		return fmt.Errorf("missing session token for API call")
+	}
+
+	err = s.apis.Platform.WithSessionToken(ctx, store, sessionToken).CreateProducts(ctx)
 	if err != nil {
 		logger.Error("failed to create products", "err", err)
 		return fmt.Errorf("failed to create products: %w", err)
@@ -220,12 +245,52 @@ func (s *platformService) GetProductsCount(ctx context.Context) (int, error) {
 		logger.Error("failed to get store from storage", "err", err)
 		return 0, fmt.Errorf("failed to get store from storage: %w", err)
 	}
+	if store == nil {
+		logger.Info("store not found, creating new store", "store_name", output.StoreName)
+		store, err = s.storages.Store.Create(ctx, &entity.Store{
+			Name:      output.StoreName,
+			Installed: true,
+		})
+		if err != nil {
+			logger.Error("failed to create store", "err", err)
+			return 0, fmt.Errorf("failed to create store: %w", err)
+		}
+		logger.Info("successfully created store", "storeId", store.ID, "storeName", store.Name)
+	}
 
-	count, err := s.apis.Platform.WithConfig(ctx, store).GetProductsCount(ctx)
+	// Get session token from context for API calls
+	sessionToken := getSessionTokenFromContext(ctx)
+	if sessionToken == "" {
+		logger.Error("missing session token for API call")
+		return 0, fmt.Errorf("missing session token for API call")
+	}
+
+	count, err := s.apis.Platform.WithSessionToken(ctx, store, sessionToken).GetProductsCount(ctx)
 	if err != nil {
 		logger.Error("failed to get product count", "err", err)
 		return 0, fmt.Errorf("failed to get product count: %w", err)
 	}
 
 	return count, nil
+}
+
+// getSessionTokenFromContext extracts the session token from the authorization header
+func getSessionTokenFromContext(ctx context.Context) string {
+	authHeader := ctx.Value("Authorization")
+	if authHeader == nil {
+		return ""
+	}
+
+	authStr, ok := authHeader.(string)
+	if !ok {
+		return ""
+	}
+
+	// Extract token from "Bearer <token>" format
+	parts := strings.Split(authStr, " ")
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		return ""
+	}
+
+	return parts[1]
 }
