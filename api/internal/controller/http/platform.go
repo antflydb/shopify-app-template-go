@@ -1,16 +1,40 @@
 package http
 
 import (
+	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/antflydb/shopify-app-template-go/internal/service"
 	"github.com/antflydb/shopify-app-template-go/pkg/errs"
-	"github.com/gin-gonic/gin"
 )
 
 type platformRoutes struct {
 	RouterContext
+}
+
+// bindQuery binds query parameters to a struct
+func bindQuery(values url.Values, target any) error {
+	// Simple implementation - in production you might want to use a library like gorilla/schema
+	switch v := target.(type) {
+	case *handlerRequestQuery:
+		v.StoreName = values.Get("shop")
+		if v.StoreName == "" {
+			return fmt.Errorf("required parameter 'shop' is missing")
+		}
+	case *redirectHandlerRequestQuery:
+		v.StoreName = values.Get("shop")
+		if v.StoreName == "" {
+			return fmt.Errorf("required parameter 'shop' is missing")
+		}
+	case *uninstallHandlerRequestQuery:
+		v.StoreName = values.Get("shop")
+		if v.StoreName == "" {
+			return fmt.Errorf("required parameter 'shop' is missing")
+		}
+	}
+	return nil
 }
 
 func newPlatformRoutes(options RouterOptions) {
@@ -21,32 +45,29 @@ func newPlatformRoutes(options RouterOptions) {
 		cfg:      options.Config,
 	}}
 
-	p := options.Handler.Group("")
-	{
-		p.GET("", wrapHandler(options, r.handler))
-		p.GET("/auth/callback", wrapHandler(options, r.redirectHandler))
-		p.POST("/uninstall", wrapHandler(options, r.uninstallHandler))
-		p.GET("/api/products/count", wrapHandler(options, r.getProductsCount))
-		p.GET("/api/products/create", wrapHandler(options, r.createProducts))
-	}
+	options.Handler.HandleFunc("GET /", wrapHandler(options, r.handler))
+	options.Handler.HandleFunc("GET /auth/callback", wrapHandler(options, r.redirectHandler))
+	options.Handler.HandleFunc("POST /uninstall", wrapHandler(options, r.uninstallHandler))
+	options.Handler.HandleFunc("GET /api/products/count", wrapHandler(options, r.getProductsCount))
+	options.Handler.HandleFunc("GET /api/products/create", wrapHandler(options, r.createProducts))
 }
 
 type handlerRequestQuery struct {
 	StoreName string `form:"shop" binding:"required"`
 }
 
-func (r *platformRoutes) handler(c *gin.Context) (any, *httpErr) {
-	logger := r.logger.Named("handler").WithContext(c)
+func (r *platformRoutes) handler(c *RequestContext) (any, *httpErr) {
+	logger := r.logger.Named("handler").WithContext(c.Context())
 
 	var requestQuery handlerRequestQuery
-	err := c.ShouldBindQuery(&requestQuery)
+	err := bindQuery(c.Request.URL.Query(), &requestQuery)
 	if err != nil {
 		logger.Info("failed to parse request query", "err", err)
 		return nil, &httpErr{Type: ErrorTypeClient, Message: "invalid request query", Details: err}
 	}
 	logger = logger.With("requestQuery", requestQuery)
 
-	redirectURL, err := r.services.Platform.Handle(c, requestQuery.StoreName, c.Request.URL.String())
+	redirectURL, err := r.services.Platform.Handle(c.Context(), requestQuery.StoreName, c.Request.URL.String())
 	if err != nil {
 		if errs.IsExpected(err) {
 			logger.Info(err.Error())
@@ -71,18 +92,18 @@ type redirectHandlerRequestQuery struct {
 	StoreName string `form:"shop" binding:"required"`
 }
 
-func (r *platformRoutes) redirectHandler(c *gin.Context) (any, *httpErr) {
-	logger := r.logger.Named("redirectHandler").WithContext(c)
+func (r *platformRoutes) redirectHandler(c *RequestContext) (any, *httpErr) {
+	logger := r.logger.Named("redirectHandler").WithContext(c.Context())
 
 	var requestQuery redirectHandlerRequestQuery
-	err := c.ShouldBindQuery(&requestQuery)
+	err := bindQuery(c.Request.URL.Query(), &requestQuery)
 	if err != nil {
 		logger.Info("failed to parse request query", "err", err)
 		return nil, &httpErr{Type: ErrorTypeClient, Message: "invalid request query", Details: err}
 	}
 	logger = logger.With("requestQuery", requestQuery)
 
-	err = r.services.Platform.HandleRedirect(c, service.ServiceHandleRedirectOptions{
+	err = r.services.Platform.HandleRedirect(c.Context(), service.ServiceHandleRedirectOptions{
 		StoreName:     requestQuery.StoreName,
 		RedirectedURL: c.Request.URL.String(),
 	})
@@ -109,20 +130,20 @@ type uninstallHandlerRequestQuery struct {
 	StoreName string `form:"shop" binding:"required"`
 }
 
-func (r *platformRoutes) uninstallHandler(c *gin.Context) (any, *httpErr) {
+func (r *platformRoutes) uninstallHandler(c *RequestContext) (any, *httpErr) {
 	logger := r.logger.
 		Named("uninstallHandler").
-		WithContext(c)
+		WithContext(c.Context())
 
 	var requestQuery uninstallHandlerRequestQuery
-	err := c.ShouldBindQuery(&requestQuery)
+	err := bindQuery(c.Request.URL.Query(), &requestQuery)
 	if err != nil {
 		logger.Info("failed to parse request query", "err", err)
 		return nil, &httpErr{Type: ErrorTypeClient, Message: "invalid request query", Details: err}
 	}
 	logger = logger.With("requestQuery", requestQuery)
 
-	err = r.services.Platform.HandleUninstall(c, requestQuery.StoreName)
+	err = r.services.Platform.HandleUninstall(c.Context(), requestQuery.StoreName)
 	if err != nil {
 		if errs.IsExpected(err) {
 			logger.Info(err.Error())
@@ -144,18 +165,23 @@ type getProductsCountResponse struct {
 	Count int `json:"count"`
 }
 
-func (r *platformRoutes) getProductsCount(c *gin.Context) (any, *httpErr) {
+func (r *platformRoutes) getProductsCount(c *RequestContext) (any, *httpErr) {
 	logger := r.logger.Named("getProductsCount")
 
-	c.Set("Authorization", c.Request.Header.Get("Authorization"))
+	// Set authorization in context - create a new context with the auth header
+	ctx := c.Context()
+	if auth := c.Request.Header.Get("Authorization"); auth != "" {
+		ctx = context.WithValue(ctx, "Authorization", auth)
+		c.WithContext(ctx)
+	}
 
-	count, err := r.services.Platform.GetProductsCount(c)
+	count, err := r.services.Platform.GetProductsCount(c.Context())
 	if err != nil {
 		// TODO: return custom errors to client, instead of 500
-		logger.Error("failed to create products", "err", err)
+		logger.Error("failed to get products count", "err", err)
 		return nil, &httpErr{
 			Type:    ErrorTypeServer,
-			Message: "failed to create products",
+			Message: "failed to get products count",
 			Details: err,
 		}
 	}
@@ -165,12 +191,17 @@ func (r *platformRoutes) getProductsCount(c *gin.Context) (any, *httpErr) {
 	return getProductsCountResponse{Count: count}, nil
 }
 
-func (r *platformRoutes) createProducts(c *gin.Context) (any, *httpErr) {
+func (r *platformRoutes) createProducts(c *RequestContext) (any, *httpErr) {
 	logger := r.logger.Named("createProducts")
 
-	c.Set("Authorization", c.Request.Header.Get("Authorization"))
+	// Set authorization in context - create a new context with the auth header
+	ctx := c.Context()
+	if auth := c.Request.Header.Get("Authorization"); auth != "" {
+		ctx = context.WithValue(ctx, "Authorization", auth)
+		c.WithContext(ctx)
+	}
 
-	err := r.services.Platform.CreateProducts(c)
+	err := r.services.Platform.CreateProducts(c.Context())
 	if err != nil {
 		// TODO: return custom errors to client, instead of 500
 		logger.Error("failed to create products", "err", err)
@@ -181,6 +212,6 @@ func (r *platformRoutes) createProducts(c *gin.Context) (any, *httpErr) {
 		}
 	}
 
-	logger.Info("successfully create products")
+	logger.Info("successfully created products")
 	return "", nil
 }

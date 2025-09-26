@@ -2,7 +2,10 @@ package http
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"runtime/debug"
 
@@ -10,12 +13,11 @@ import (
 	"github.com/antflydb/shopify-app-template-go/config"
 	"github.com/antflydb/shopify-app-template-go/internal/service"
 	"github.com/antflydb/shopify-app-template-go/pkg/logging"
-	"github.com/gin-gonic/gin"
 )
 
 // Options is used to create HTTP controller.
 type Options struct {
-	Handler  *gin.Engine
+	Handler  *http.ServeMux
 	Services service.Services
 	Storages service.Storages
 	Logger   logging.Logger
@@ -24,7 +26,7 @@ type Options struct {
 
 // RouterOptions provides shared options for all routers.
 type RouterOptions struct {
-	Handler  *gin.RouterGroup
+	Handler  *http.ServeMux
 	Services service.Services
 	Storages service.Storages
 	Logger   logging.Logger
@@ -40,12 +42,8 @@ type RouterContext struct {
 }
 
 func New(options *Options) {
-	options.Handler.Use(
-		corsMiddleware,
-	)
-
 	routerOptions := RouterOptions{
-		Handler:  options.Handler.Group(""),
+		Handler:  options.Handler,
 		Services: options.Services,
 		Storages: options.Storages,
 		Logger:   options.Logger.Named("HTTPController"),
@@ -53,7 +51,9 @@ func New(options *Options) {
 	}
 
 	// K8S probe
-	options.Handler.GET("/ping", func(c *gin.Context) { c.Status(http.StatusOK) })
+	options.Handler.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
 
 	// Routers
 	{
@@ -85,10 +85,46 @@ func (e *httpErr) Error() string {
 	return fmt.Sprintf("%s: %s", e.Type, e.Message)
 }
 
+// RequestContext provides context for HTTP handlers
+type RequestContext struct {
+	Request  *http.Request
+	Writer   http.ResponseWriter
+	Logger   logging.Logger
+	Config   *config.Config
+	Services service.Services
+	Storages service.Storages
+	ctx      context.Context
+}
+
+// Context returns the request context
+func (r *RequestContext) Context() context.Context {
+	return r.ctx
+}
+
+// WithContext sets the context
+func (r *RequestContext) WithContext(ctx context.Context) {
+	r.ctx = ctx
+}
+
+// JSON writes JSON response
+func (r *RequestContext) JSON(status int, data any) error {
+	r.Writer.Header().Set("Content-Type", "application/json")
+	r.Writer.WriteHeader(status)
+	return json.NewEncoder(r.Writer).Encode(data)
+}
+
+// Redirect sends an HTTP redirect response
+func (r *RequestContext) Redirect(status int, url string) {
+	http.Redirect(r.Writer, r.Request, url, status)
+}
+
 // wrapHandler provides unified error handling for all handlers.
-func wrapHandler(options RouterOptions, handler func(c *gin.Context) (any, *httpErr)) gin.HandlerFunc {
-	return func(c *gin.Context) {
+func wrapHandler(options RouterOptions, handler func(r *RequestContext) (any, *httpErr)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		logger := options.Logger.Named("wrapHandler")
+
+		// Add CORS middleware
+		corsMiddleware(w, r)
 
 		// handle panics
 		defer func() {
@@ -102,17 +138,23 @@ func wrapHandler(options RouterOptions, handler func(c *gin.Context) (any, *http
 				}
 
 				// return error
-				err := c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("%v", err))
-				if err != nil {
-					logger.Error("failed to abort with error", "err", err)
-				}
+				w.WriteHeader(http.StatusInternalServerError)
+				log.Printf("Internal server error: %v", err)
 			}
 		}()
 
-		c.Set("Authorization", c.Request.Header.Get("Authorization"))
+		reqCtx := &RequestContext{
+			Request:  r,
+			Writer:   w,
+			Logger:   logger,
+			Config:   options.Config,
+			Services: options.Services,
+			Storages: options.Storages,
+			ctx:      r.Context(),
+		}
 
 		// execute handler
-		body, err := handler(c)
+		body, err := handler(reqCtx)
 
 		// check if middleware
 		if body == nil && err == nil {
@@ -128,35 +170,31 @@ func wrapHandler(options RouterOptions, handler func(c *gin.Context) (any, *http
 				// whether to send error to the client
 				if options.Config.HTTP.SendDetailsOnInternalError {
 					// send error to the client
-					c.AbortWithStatusJSON(http.StatusInternalServerError, err)
+					reqCtx.JSON(http.StatusInternalServerError, err)
 				} else {
 					// don't send error to the client
-					err := c.AbortWithError(http.StatusInternalServerError, err)
-					if err != nil {
-						logger.Error("failed to abort with error", "err", err)
-					}
+					w.WriteHeader(http.StatusInternalServerError)
 					logger.Info("aborted with error")
 				}
 			} else {
 				logger.Info("client error")
-				c.AbortWithStatusJSON(http.StatusUnprocessableEntity, err)
+				reqCtx.JSON(http.StatusUnprocessableEntity, err)
 			}
 			return
 		}
 		logger.Info("request handled")
-		c.JSON(http.StatusOK, body)
+		reqCtx.JSON(http.StatusOK, body)
 	}
 }
 
 // corsMiddleware is used to allow incoming cross-origin requests.
-func corsMiddleware(c *gin.Context) {
-	c.Header("Access-Control-Allow-Origin", "*")
-	c.Header("Access-Control-Allow-Methods", "*")
-	c.Header("Access-Control-Allow-Headers", "*")
-	c.Header("Content-Type", "application/json")
-	if c.Request.Method != "OPTIONS" {
-		c.Next()
-	} else {
-		c.AbortWithStatus(http.StatusOK)
+func corsMiddleware(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "*")
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
 	}
 }

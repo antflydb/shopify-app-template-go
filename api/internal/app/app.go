@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -16,7 +17,6 @@ import (
 	"github.com/antflydb/shopify-app-template-go/pkg/database"
 	"github.com/antflydb/shopify-app-template-go/pkg/httpserver"
 	"github.com/antflydb/shopify-app-template-go/pkg/logging"
-	"github.com/gin-gonic/gin"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -65,11 +65,11 @@ func Run(cfg *config.Config) {
 		Platform: service.NewPlatformService(serviceOptions),
 	}
 
-	// Init HTTP framework of choice
-	httpHandler := gin.New()
+	// Init native HTTP handler
+	mux := http.NewServeMux()
 
 	httpcontroller.New(&httpcontroller.Options{
-		Handler:  httpHandler,
+		Handler:  mux,
 		Services: services,
 		Storages: storages,
 		Logger:   logger,
@@ -77,7 +77,7 @@ func Run(cfg *config.Config) {
 	})
 
 	httpServer := httpserver.New(
-		httpHandler,
+		mux,
 		httpserver.Port(cfg.HTTP.Port),
 		httpserver.ReadTimeout(120*time.Second),
 		httpserver.WriteTimeout(120*time.Second),
