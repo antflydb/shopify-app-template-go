@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
-	"github.com/softcery/shopify-app-template-go/internal/entity"
-	"github.com/softcery/shopify-app-template-go/internal/service"
-	"github.com/softcery/shopify-app-template-go/pkg/database"
-	"gorm.io/gorm"
+	"github.com/antflydb/shopify-app-template-go/internal/entity"
+	"github.com/antflydb/shopify-app-template-go/internal/service"
+	"github.com/antflydb/shopify-app-template-go/pkg/database"
+	"github.com/huandu/go-sqlbuilder"
+	"github.com/jackc/pgx/v5"
 )
 
 type storeStorage struct {
@@ -22,12 +24,26 @@ func NewStoreStorage(db database.Database) *storeStorage {
 }
 
 func (s *storeStorage) Get(ctx context.Context, storeName string) (*entity.Store, error) {
-	stmt := s.Instance().
-		Where(&entity.Store{Name: storeName})
+	sb := sqlbuilder.NewSelectBuilder()
+	query, args := sb.
+		Select("id", "name", "nonce", "access_token", "installed", "created_at", "updated_at", "deleted_at").
+		From("stores").
+		Where(sb.Equal("name", storeName)).
+		Where(sb.IsNull("deleted_at")).
+		Build()
 
 	var store entity.Store
-	err := stmt.First(&store).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	err := s.Pool().QueryRow(ctx, query, args...).Scan(
+		&store.ID,
+		&store.Name,
+		&store.Nonce,
+		&store.AccessToken,
+		&store.Installed,
+		&store.CreatedAt,
+		&store.UpdatedAt,
+		&store.DeletedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -38,38 +54,70 @@ func (s *storeStorage) Get(ctx context.Context, storeName string) (*entity.Store
 }
 
 func (s *storeStorage) Update(ctx context.Context, store *entity.Store) (*entity.Store, error) {
-	err := s.Instance().
-		Where(&entity.Store{Name: store.Name}).
-		Updates(store).
-		Error
+	now := time.Now()
+	store.UpdatedAt = now
+
+	sb := sqlbuilder.NewUpdateBuilder()
+	query, args := sb.
+		Update("stores").
+		Set(
+			sb.Assign("nonce", store.Nonce),
+			sb.Assign("access_token", store.AccessToken),
+			sb.Assign("installed", store.Installed),
+			sb.Assign("updated_at", now),
+		).
+		Where(sb.Equal("name", store.Name)).
+		Where(sb.IsNull("deleted_at")).
+		Build()
+
+	_, err := s.Pool().Exec(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update store: %w", err)
 	}
 
-	var updatedStore entity.Store
-	err = s.Instance().
-		Where(&entity.Store{Name: store.Name}).
-		First(&updatedStore).
-		Error
+	updatedStore, err := s.Get(ctx, store.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get updated store: %w", err)
 	}
 
-	return &updatedStore, nil
+	return updatedStore, nil
 }
 
 func (s *storeStorage) Create(ctx context.Context, store *entity.Store) (*entity.Store, error) {
-	err := s.Instance().Create(store).Error
+	now := time.Now()
+	store.CreatedAt = now
+	store.UpdatedAt = now
+
+	sb := sqlbuilder.NewInsertBuilder()
+	query, args := sb.
+		InsertInto("stores").
+		Cols("id", "name", "nonce", "access_token", "installed", "created_at", "updated_at").
+		Values(store.ID, store.Name, store.Nonce, store.AccessToken, store.Installed, store.CreatedAt, store.UpdatedAt).
+		Build()
+
+	_, err := s.Pool().Exec(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create store: %w", err)
 	}
+
 	return store, nil
 }
 
 func (s *storeStorage) Delete(ctx context.Context, storeName string) error {
-	err := s.Instance().Delete(&entity.Store{}, "name = ?", storeName).Error
+	now := time.Now()
+
+	sb := sqlbuilder.NewUpdateBuilder()
+	query, args := sb.
+		Update("stores").
+		Set(sb.Assign("deleted_at", now)).
+		Where(sb.Equal("name", storeName)).
+		Where(sb.IsNull("deleted_at")).
+		Build()
+
+	_, err := s.Pool().Exec(ctx, query, args...)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to delete store: %w", err)
 	}
+
 	return nil
 }

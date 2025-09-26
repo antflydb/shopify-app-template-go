@@ -19,25 +19,26 @@ Please ensure that the following software is installed on your computer:
 ### Getting started
 
 1. Clone the template using the following terminal command:
-    
+
     ```
-    npx @softcerycom/shopify-app-template-go-init@latest && cd softcery-shopify-app-template-go
+    git clone https://github.com/antflydb/shopify-app-template-go.git my-shopify-app
+    cd my-shopify-app
     ```
-    
+
 2. Install NPM dependencies:
-    
+
     ```
-    npm i    
+    npm i
     ```
-    
+
 3. Start the database (Postgres is used by default). The following command will start a new Postgres container using the configuration in the **`.local.env`** file:
-    
+
     ```
     docker-compose --env-file .local.env up --build postgresdb
     ```
-    
+
 4. Run the project:
-    
+
     ```
     npm run dev
     ```

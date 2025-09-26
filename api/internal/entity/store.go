@@ -1,22 +1,22 @@
 package entity
 
 import (
-	"github.com/softcery/shopify-app-template-go/pkg/database"
+	"github.com/antflydb/shopify-app-template-go/pkg/database"
 )
 
 // Store model represents model of platform store.
 type Store struct {
 	database.Model
-	ID   string `json:"id" gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
-	Name string `gorm:"index"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
 
 	// Shopify
-	Nonce       string
-	AccessToken string
-	Installed   bool
+	Nonce       string `json:"nonce"`
+	AccessToken string `json:"access_token"`
+	Installed   bool   `json:"installed"`
 }
 
 type Session struct {
-	SessionID string
-	StoreID   string
+	SessionID string `json:"session_id"`
+	StoreID   string `json:"store_id"`
 }

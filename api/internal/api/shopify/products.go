@@ -6,7 +6,7 @@ import (
 	"math/rand"
 	"net/http"
 
-	"github.com/softcery/shopify-app-template-go/internal/service"
+	"github.com/antflydb/shopify-app-template-go/internal/service"
 )
 
 type createProductRequestBody struct {
@@ -26,7 +26,7 @@ func (s *shopifyAPI) CreateProducts(ctx context.Context) error {
 		Named("CreateProducts").
 		WithContext(ctx)
 
-	for i := 0; i < service.DEFAULT_PRODUCT_COUNT; i++ {
+	for range service.DEFAULT_PRODUCT_COUNT {
 		title := generateRandomProductTitle()
 		product := &createProductRequestBody{
 			Product: &product{

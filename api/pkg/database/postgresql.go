@@ -1,12 +1,10 @@
 package database
 
 import (
-	"errors"
+	"context"
 	"fmt"
-	"time"
 
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type PostgreSQLConfig struct {
@@ -17,72 +15,48 @@ type PostgreSQLConfig struct {
 }
 
 type PostgreSQL struct {
-	DB *gorm.DB
+	pool *pgxpool.Pool
 }
 
 // Check if implements the interface.
 var _ Database = (*PostgreSQL)(nil)
 
 // NewPostgreSQL is used to create new instance of PostgreSQL.
-func NewPostgreSQL(cfg *PostgreSQLConfig) (*PostgreSQL, error) {
+func NewPostgreSQL(ctx context.Context, cfg *PostgreSQLConfig) (*PostgreSQL, error) {
 	dsn := fmt.Sprintf(
-		"user=%s password=%s dbname=%s host=%s",
-		cfg.User, cfg.Password, cfg.Database, cfg.Host,
+		"postgres://%s:%s@%s/%s?sslmode=disable",
+		cfg.User, cfg.Password, cfg.Host, cfg.Database,
 	)
 
-	// Connect to the database by DSN
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{PrepareStmt: true})
+	// Connect to the database
+	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to postgresql: %w", err)
 	}
 
-	// create UUID extension.
-	err = db.Exec(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`).Error
+	// Test the connection
+	err = pool.Ping(ctx)
 	if err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("failed to ping postgresql: %w", err)
+	}
+
+	// Create UUID extension
+	_, err = pool.Exec(ctx, `CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`)
+	if err != nil {
+		pool.Close()
 		return nil, fmt.Errorf("failed to create uuid-ossp extension: %w", err)
 	}
 
-	return &PostgreSQL{DB: db}, nil
+	return &PostgreSQL{pool: pool}, nil
 }
 
-func (p *PostgreSQL) Instance() *gorm.DB {
-	return p.DB
+func (p *PostgreSQL) Pool() *pgxpool.Pool {
+	return p.pool
 }
 
-func (p *PostgreSQL) Close() error {
-	if p.DB == nil {
-		return errors.New("db connection is already closed")
+func (p *PostgreSQL) Close() {
+	if p.pool != nil {
+		p.pool.Close()
 	}
-	db, err := p.DB.DB()
-	if err != nil {
-		return err
-	}
-	return db.Close()
-}
-
-func (p *PostgreSQL) SetMaxIdleConns(n int) error {
-	db, err := p.DB.DB()
-	if err != nil {
-		return err
-	}
-	db.SetMaxIdleConns(n)
-	return nil
-}
-
-func (p *PostgreSQL) SetMaxOpenConns(n int) error {
-	db, err := p.DB.DB()
-	if err != nil {
-		return err
-	}
-	db.SetMaxOpenConns(n)
-	return nil
-}
-
-func (p *PostgreSQL) SetConnMaxLifetime(d time.Duration) error {
-	db, err := p.DB.DB()
-	if err != nil {
-		return err
-	}
-	db.SetConnMaxLifetime(d)
-	return nil
 }

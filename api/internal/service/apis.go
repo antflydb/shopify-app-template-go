@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/softcery/shopify-app-template-go/internal/entity"
-	"github.com/softcery/shopify-app-template-go/pkg/errs"
+	"github.com/antflydb/shopify-app-template-go/internal/entity"
+	"github.com/antflydb/shopify-app-template-go/pkg/errs"
 )
 
 // APIs provides a collection of API interfaces.

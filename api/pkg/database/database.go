@@ -3,25 +3,19 @@ package database
 import (
 	"time"
 
-	"gorm.io/gorm"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Database interface {
-	// Instance is used to get primary database instance.
-	Instance() *gorm.DB
+	// Pool is used to get database connection pool.
+	Pool() *pgxpool.Pool
 	// Close is used to close database connection.
-	Close() error
-	// SetMaxIdleConns is used to configure maximum idle connections.
-	SetMaxIdleConns(n int) error
-	// SetMaxOpenConns is used to configure maximum openned connections.
-	SetMaxOpenConns(n int) error
-	// SetConnMaxLifetime is used to configure maximum openned connection lifetime.
-	SetConnMaxLifetime(d time.Duration) error
+	Close()
 }
 
-// Model provides base fields for all database models (like gorm.Model).
+// Model provides base fields for all database models.
 type Model struct {
-	CreatedAt time.Time      `json:"-" gorm:"index"`
-	UpdatedAt time.Time      `json:"-"`
-	DeletedAt gorm.DeletedAt `json:"-" gorm:"index" swaggerignore:"true"`
+	CreatedAt time.Time  `json:"-"`
+	UpdatedAt time.Time  `json:"-"`
+	DeletedAt *time.Time `json:"-"`
 }

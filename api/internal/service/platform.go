@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/softcery/shopify-app-template-go/config"
-	"github.com/softcery/shopify-app-template-go/internal/entity"
-	"github.com/softcery/shopify-app-template-go/pkg/errs"
-	"github.com/softcery/shopify-app-template-go/pkg/logging"
+	"github.com/antflydb/shopify-app-template-go/config"
+	"github.com/antflydb/shopify-app-template-go/internal/entity"
+	"github.com/antflydb/shopify-app-template-go/pkg/errs"
+	"github.com/antflydb/shopify-app-template-go/pkg/logging"
 )
 
 // platformService service implements PlatformService interface.

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/antflydb/shopify-app-template-go/internal/service"
+	"github.com/antflydb/shopify-app-template-go/pkg/errs"
 	"github.com/gin-gonic/gin"
-	"github.com/softcery/shopify-app-template-go/internal/service"
-	"github.com/softcery/shopify-app-template-go/pkg/errs"
 )
 
 type platformRoutes struct {
@@ -35,7 +35,7 @@ type handlerRequestQuery struct {
 	StoreName string `form:"shop" binding:"required"`
 }
 
-func (r *platformRoutes) handler(c *gin.Context) (interface{}, *httpErr) {
+func (r *platformRoutes) handler(c *gin.Context) (any, *httpErr) {
 	logger := r.logger.Named("handler").WithContext(c)
 
 	var requestQuery handlerRequestQuery
@@ -71,7 +71,7 @@ type redirectHandlerRequestQuery struct {
 	StoreName string `form:"shop" binding:"required"`
 }
 
-func (r *platformRoutes) redirectHandler(c *gin.Context) (interface{}, *httpErr) {
+func (r *platformRoutes) redirectHandler(c *gin.Context) (any, *httpErr) {
 	logger := r.logger.Named("redirectHandler").WithContext(c)
 
 	var requestQuery redirectHandlerRequestQuery
@@ -109,7 +109,7 @@ type uninstallHandlerRequestQuery struct {
 	StoreName string `form:"shop" binding:"required"`
 }
 
-func (r *platformRoutes) uninstallHandler(c *gin.Context) (interface{}, *httpErr) {
+func (r *platformRoutes) uninstallHandler(c *gin.Context) (any, *httpErr) {
 	logger := r.logger.
 		Named("uninstallHandler").
 		WithContext(c)
@@ -144,7 +144,7 @@ type getProductsCountResponse struct {
 	Count int `json:"count"`
 }
 
-func (r *platformRoutes) getProductsCount(c *gin.Context) (interface{}, *httpErr) {
+func (r *platformRoutes) getProductsCount(c *gin.Context) (any, *httpErr) {
 	logger := r.logger.Named("getProductsCount")
 
 	c.Set("Authorization", c.Request.Header.Get("Authorization"))
@@ -165,7 +165,7 @@ func (r *platformRoutes) getProductsCount(c *gin.Context) (interface{}, *httpErr
 	return getProductsCountResponse{Count: count}, nil
 }
 
-func (r *platformRoutes) createProducts(c *gin.Context) (interface{}, *httpErr) {
+func (r *platformRoutes) createProducts(c *gin.Context) (any, *httpErr) {
 	logger := r.logger.Named("createProducts")
 
 	c.Set("Authorization", c.Request.Header.Get("Authorization"))

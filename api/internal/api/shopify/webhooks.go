@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/softcery/shopify-app-template-go/internal/service"
+	"github.com/antflydb/shopify-app-template-go/internal/service"
 )
 
 type subscribeToWebhookRequestBody struct {
@@ -19,7 +19,7 @@ func (s *shopifyAPI) SubscribeToAppUninstallWebhook(opts service.SubscribeToAppU
 		With("opts", opts)
 
 	var res, err = s.client.R().
-		SetBody(map[string]interface{}{
+		SetBody(map[string]any{
 			"webhook": subscribeToWebhookRequestBody{
 				Address: opts.RedirectURL,
 				Topic:   "app/uninstalled",

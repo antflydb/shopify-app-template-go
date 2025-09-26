@@ -1,28 +1,33 @@
 package app
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/antflydb/shopify-app-template-go/config"
+	"github.com/antflydb/shopify-app-template-go/internal/api/shopify"
+	httpcontroller "github.com/antflydb/shopify-app-template-go/internal/controller/http"
+	"github.com/antflydb/shopify-app-template-go/internal/service"
+	"github.com/antflydb/shopify-app-template-go/internal/storage"
+	"github.com/antflydb/shopify-app-template-go/pkg/database"
+	"github.com/antflydb/shopify-app-template-go/pkg/httpserver"
+	"github.com/antflydb/shopify-app-template-go/pkg/logging"
 	"github.com/gin-gonic/gin"
-	"github.com/softcery/shopify-app-template-go/config"
-	"github.com/softcery/shopify-app-template-go/internal/api/shopify"
-	httpcontroller "github.com/softcery/shopify-app-template-go/internal/controller/http"
-	"github.com/softcery/shopify-app-template-go/internal/entity"
-	"github.com/softcery/shopify-app-template-go/internal/service"
-	"github.com/softcery/shopify-app-template-go/internal/storage"
-	"github.com/softcery/shopify-app-template-go/pkg/database"
-	"github.com/softcery/shopify-app-template-go/pkg/httpserver"
-	"github.com/softcery/shopify-app-template-go/pkg/logging"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
 func Run(cfg *config.Config) {
 	logger := logging.NewZap(cfg.Log.Level)
+	ctx := context.Background()
 
 	// Init db
-	sql, err := database.NewPostgreSQL(&database.PostgreSQLConfig{
+	sql, err := database.NewPostgreSQL(ctx, &database.PostgreSQLConfig{
 		User:     cfg.Postgres.User,
 		Password: cfg.Postgres.Password,
 		Host:     cfg.Postgres.Host,
@@ -32,11 +37,10 @@ func Run(cfg *config.Config) {
 		logger.Fatal("failed to connect to PostgreSQL", "err", err)
 	}
 
-	err = sql.DB.AutoMigrate(
-		&entity.Store{},
-	)
+	// Run migrations
+	err = runMigrations(cfg, logger)
 	if err != nil {
-		logger.Fatal("automigration failed", "err", err)
+		logger.Fatal("migration failed", "err", err)
 	}
 
 	storages := service.Storages{
@@ -97,4 +101,30 @@ func Run(cfg *config.Config) {
 	if err != nil {
 		logger.Error("app - Run - httpServer.Shutdown", "err", err)
 	}
+
+	// Close database connection
+	sql.Close()
+}
+
+func runMigrations(cfg *config.Config, logger logging.Logger) error {
+	databaseURL := fmt.Sprintf(
+		"postgres://%s:%s@%s/%s?sslmode=disable",
+		cfg.Postgres.User,
+		cfg.Postgres.Password,
+		cfg.Postgres.Host,
+		cfg.Postgres.Database,
+	)
+
+	m, err := migrate.New("file://migrations", databaseURL)
+	if err != nil {
+		return fmt.Errorf("failed to create migrate instance: %w", err)
+	}
+	defer m.Close()
+
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("failed to run migrations: %w", err)
+	}
+
+	logger.Info("migrations completed successfully")
+	return nil
 }

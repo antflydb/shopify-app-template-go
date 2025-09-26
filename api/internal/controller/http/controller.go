@@ -7,10 +7,10 @@ import (
 	"runtime/debug"
 
 	"github.com/DataDog/gostackparse"
+	"github.com/antflydb/shopify-app-template-go/config"
+	"github.com/antflydb/shopify-app-template-go/internal/service"
+	"github.com/antflydb/shopify-app-template-go/pkg/logging"
 	"github.com/gin-gonic/gin"
-	"github.com/softcery/shopify-app-template-go/config"
-	"github.com/softcery/shopify-app-template-go/internal/service"
-	"github.com/softcery/shopify-app-template-go/pkg/logging"
 )
 
 // Options is used to create HTTP controller.
@@ -63,11 +63,11 @@ func New(options *Options) {
 
 // httpErr provides a base error type for all http controller errors.
 type httpErr struct {
-	Type             httpErrType            `json:"-"`
-	Code             int                    `json:"-"`
-	Message          string                 `json:"message"`
-	Details          interface{}            `json:"details,omitempty"`
-	ValidationErrors map[string]interface{} `json:"validationErrors,omitempty"`
+	Type             httpErrType    `json:"-"`
+	Code             int            `json:"-"`
+	Message          string         `json:"message"`
+	Details          any            `json:"details,omitempty"`
+	ValidationErrors map[string]any `json:"validationErrors,omitempty"`
 }
 
 // httpErrType is used to define error type.
@@ -86,7 +86,7 @@ func (e *httpErr) Error() string {
 }
 
 // wrapHandler provides unified error handling for all handlers.
-func wrapHandler(options RouterOptions, handler func(c *gin.Context) (interface{}, *httpErr)) gin.HandlerFunc {
+func wrapHandler(options RouterOptions, handler func(c *gin.Context) (any, *httpErr)) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		logger := options.Logger.Named("wrapHandler")
 

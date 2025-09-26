@@ -13,14 +13,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/softcery/shopify-app-template-go.git"
+    "url": "git+https://github.com/antflydb/shopify-app-template-go.git"
   },
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "bugs": {
-    "url": "https://github.com/softcery/shopify-app-template-go/issues"
+    "url": "https://github.com/antflydb/shopify-app-template-go/issues"
   },
-  "homepage": "https://github.com/softcery/shopify-app-template-go#readme",
+  "homepage": "https://github.com/antflydb/shopify-app-template-go#readme",
   "dependencies": {
     "@shopify/cli": "^3.85.0"
   }

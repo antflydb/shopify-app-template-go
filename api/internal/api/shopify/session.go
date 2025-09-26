@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/antflydb/shopify-app-template-go/internal/service"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/softcery/shopify-app-template-go/internal/service"
 )
 
 func (s *shopifyAPI) VerifySession(ctx context.Context) (*service.VerifySessionOutput, error) {
@@ -60,7 +60,7 @@ func (s *shopifyAPI) VerifySession(ctx context.Context) (*service.VerifySessionO
 		return &service.VerifySessionOutput{IsVerified: false}, err
 	}
 
-	if isSessionTokenValid != "" && err == nil {
+	if isSessionTokenValid != "" {
 		return &service.VerifySessionOutput{IsVerified: true, StoreName: storeName}, nil
 	}
 
@@ -81,7 +81,7 @@ type Claims struct {
 func (s *shopifyAPI) verifySessionToken(tokenString string) (string, error) {
 	// Parse the token
 	claims := &Claims{}
-	_, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+	_, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (any, error) {
 		return []byte(s.cfg.Shopify.ApiSecret), nil
 	})
 	if err != nil {
@@ -152,7 +152,7 @@ func (s *shopifyAPI) getStoreName(token string) (string, error) {
 
 	// Parse the payload
 	claims := &Claims{}
-	_, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
+	_, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (any, error) {
 		return []byte(s.cfg.Shopify.ApiSecret), nil
 	})
 	if err != nil {

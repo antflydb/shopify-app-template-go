@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/antflydb/shopify-app-template-go/internal/service"
 	"github.com/google/uuid"
-	"github.com/softcery/shopify-app-template-go/internal/service"
 )
 
 func (s *shopifyAPI) HandleInstall(opts service.HandleInstallOptions) (service.APIHandleInstallOutput, error) {

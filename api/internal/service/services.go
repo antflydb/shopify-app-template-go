@@ -3,9 +3,9 @@ package service
 import (
 	"context"
 
-	"github.com/softcery/shopify-app-template-go/config"
-	"github.com/softcery/shopify-app-template-go/pkg/errs"
-	"github.com/softcery/shopify-app-template-go/pkg/logging"
+	"github.com/antflydb/shopify-app-template-go/config"
+	"github.com/antflydb/shopify-app-template-go/pkg/errs"
+	"github.com/antflydb/shopify-app-template-go/pkg/logging"
 )
 
 // Services contains all available services.

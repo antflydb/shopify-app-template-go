@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/antflydb/shopify-app-template-go/config"
+	"github.com/antflydb/shopify-app-template-go/internal/entity"
+	"github.com/antflydb/shopify-app-template-go/internal/service"
+	"github.com/antflydb/shopify-app-template-go/pkg/logging"
 	"github.com/go-resty/resty/v2"
 	"github.com/hashicorp/go-retryablehttp"
-	"github.com/softcery/shopify-app-template-go/config"
-	"github.com/softcery/shopify-app-template-go/internal/entity"
-	"github.com/softcery/shopify-app-template-go/internal/service"
-	"github.com/softcery/shopify-app-template-go/pkg/logging"
 )
 
 type Options struct {

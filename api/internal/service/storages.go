@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	"github.com/softcery/shopify-app-template-go/internal/entity"
+	"github.com/antflydb/shopify-app-template-go/internal/entity"
 )
 
 // Storages contains all available storages.

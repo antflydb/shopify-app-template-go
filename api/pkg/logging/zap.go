@@ -68,7 +68,7 @@ func (l *zap) Named(name string) Logger {
 	}
 }
 
-func (l *zap) With(args ...interface{}) Logger {
+func (l *zap) With(args ...any) Logger {
 	return &zap{
 		logger: l.logger.With(args...),
 	}
@@ -79,23 +79,23 @@ func (l *zap) WithContext(ctx context.Context) Logger {
 	return l.With("RequestID", ctx.Value("RequestID"))
 }
 
-func (l *zap) Debug(message string, args ...interface{}) {
+func (l *zap) Debug(message string, args ...any) {
 	l.logger.Debugw(message, args...)
 }
 
-func (l *zap) Info(message string, args ...interface{}) {
+func (l *zap) Info(message string, args ...any) {
 	l.logger.Infow(message, args...)
 }
 
-func (l *zap) Warn(message string, args ...interface{}) {
+func (l *zap) Warn(message string, args ...any) {
 	l.logger.Warnw(message, args...)
 }
 
-func (l *zap) Error(message string, args ...interface{}) {
+func (l *zap) Error(message string, args ...any) {
 	l.logger.Errorw(message, args...)
 }
 
-func (l *zap) Fatal(message string, args ...interface{}) {
+func (l *zap) Fatal(message string, args ...any) {
 	l.logger.Fatalw(message, args...)
 	os.Exit(1)
 }

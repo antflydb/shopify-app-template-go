@@ -8,7 +8,7 @@ import (
 )
 
 // Scan is implementing sql.Scanner interface.
-func Scan(dest interface{}, value interface{}) error {
+func Scan(dest any, value any) error {
 	switch t := value.(type) {
 	case string:
 		return json.Unmarshal([]byte(t), dest)
@@ -21,7 +21,7 @@ func Scan(dest interface{}, value interface{}) error {
 }
 
 // Value is implementing driver.Valuer interface.
-func Value(src interface{}) (driver.Value, error) {
+func Value(src any) (driver.Value, error) {
 	value, err := json.Marshal(src)
 	return string(json.RawMessage(value)), err
 }
