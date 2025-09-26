@@ -23,6 +23,7 @@ Please ensure that the following software is installed on your computer:
     ```
     git clone https://github.com/antflydb/shopify-app-template-go.git my-shopify-app
     cd my-shopify-app
+    shopify app init
     ```
 
 2. Install NPM dependencies:
